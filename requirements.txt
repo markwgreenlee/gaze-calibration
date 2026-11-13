@@ -1,0 +1,4 @@
+# The Standalone PsychoPy build already satisfies both of these.
+# Only needed when running from a plain Python environment.
+psychopy>=2022.2
+numpy>=1.21

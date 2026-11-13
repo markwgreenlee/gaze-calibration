@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock-face gaze calibration for MR-based eye tracking</title>
+<style>
+  :root { --ink:#1a1a1a; --mute:#5c6670; --rule:#e3e6e8; --accent:#1f78b4; --bg:#fff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width:50rem; margin:0 auto; padding:3rem 1.25rem 5rem; }
+  h1 { font-size:1.85rem; line-height:1.25; margin:0 0 .4rem; font-weight:600; }
+  .sub { color:var(--mute); margin:0 0 2rem; font-size:1.05rem; }
+  h2 { font-size:1.15rem; margin:2.6rem 0 .7rem; font-weight:600;
+       border-bottom:1px solid var(--rule); padding-bottom:.35rem; }
+  h3 { font-size:1rem; margin:1.6rem 0 .4rem; font-weight:600; }
+  p, li { color:#23292e; }
+  a { color:var(--accent); }
+  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.875rem; }
+  code { background:#f4f6f7; padding:.12em .35em; border-radius:3px; }
+  pre { background:#f4f6f7; padding:.9rem 1rem; border-radius:6px; overflow-x:auto;
+        border:1px solid var(--rule); }
+  pre code { background:none; padding:0; }
+  figure { margin:1.5rem 0; }
+  figure img { width:100%; border:1px solid var(--rule); border-radius:6px; }
+  figcaption { color:var(--mute); font-size:.85rem; margin-top:.5rem; }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.92rem; }
+  th, td { text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--rule);
+           vertical-align:top; }
+  th { font-weight:600; }
+  .note { border-left:3px solid var(--accent); background:#f6fafd; padding:.75rem 1rem;
+          margin:1.2rem 0; border-radius:0 4px 4px 0; }
+  .spec { display:flex; flex-wrap:wrap; gap:.5rem 2rem; margin:1.2rem 0; padding:0; list-style:none; }
+  .spec li { font-size:.9rem; color:var(--mute); }
+  .spec b { color:var(--ink); font-weight:600; }
+  footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--rule);
+           color:var(--mute); font-size:.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Clock-face gaze calibration for MR-based eye tracking</h1>
+<p class="sub">A PsychoPy run that produces the labelled gaze data DeepMReye needs to be
+fine-tuned on an individual participant.</p>
+
+<ul class="spec">
+  <li><b>404 s</b> · 202 volumes at TR 2 s</li>
+  <li><b>2 rings</b> · 7.5° and 3.75°</li>
+  <li><b>96 targets</b> · one TR each</li>
+  <li><b>PsychoPy</b> 2022.2+</li>
+</ul>
+
+<p>A white dot steps around a virtual clock face on two rings, holding each position for one TR
+and returning to the centre for one TR between steps. Rings alternate revolution by revolution,
+clockwise then anticlockwise, so eccentricity is not confounded with time in the scanner. The
+participant looks at the dot wherever it appears and presses a key whenever it briefly turns red —
+that detection task is what enforces foveation of each target, which is what makes the run usable
+as calibration.</p>
+
+<figure>
+  <img src="calibration_layout.png" alt="Target layout on the display and the timing of the first
+       revolutions, showing both rings alternating and the red-flash events.">
+  <figcaption>Left: the twelve clock positions on each ring, drawn to scale on the display with its
+  measured physical dimensions. Right: target position over the opening of a run, with the ring in
+  use indicated beneath and red-flash events above.</figcaption>
+</figure>
+
+<h2>Why these choices</h2>
+
+<h3>Two rings, not one</h3>
+<p>A decoder fine-tuned only at the edge of the gaze range is unconstrained in the interior, which
+is exactly where small involuntary movements sit. The inner ring samples that interior. Rings
+alternate revolution by revolution and start on a different ring in each direction, so both have
+the same mean time in the run.</p>
+
+<h3>One TR per epoch</h3>
+<p>With target and fixation epochs both equal to the TR, every volume falls entirely on a target or
+entirely on central fixation. No training label is a within-volume mixture.</p>
+
+<h3>Geometry from the panel, not from an approximation</h3>
+<p>Positions are computed with <code>tan()</code> from the measured physical size of the display,
+so a stated eccentricity is that angle at the eye. The live resolution is read before the schedule
+is built and again from the window that actually opened, because display scaling changes the pixel
+pitch without changing the panel.</p>
+
+<div class="note">
+<b>Set your own display.</b> The defaults describe a Dell P2723QE (597 × 336 mm) at 1.2 m. For any
+other screen — an in-bore projector above all — pass <code>--screen-mm WIDTHxHEIGHT</code> and
+<code>--distance</code>. The script refuses to run full screen if a target would fall off the
+display, and names the limit instead of drawing off-screen.
+</div>
+
+<h2>Running it</h2>
+
+<pre><code># verify the schedule and geometry — no PsychoPy needed, under a second
+python test_calib_schedule.py
+
+# desk check: 96 s, one ring, windowed
+python neck_vib_calibration.py --participant TEST --session desk \
+    --windowed --distance 600 --rings 7.5 --revolutions 1 --lead-in 0 --lead-out 0
+
+# full protocol, full screen
+python neck_vib_calibration.py --participant P01 --session lab
+
+# in the scanner
+python neck_vib_calibration.py --participant P01 --session scanner --scanner \
+    --tr 2.0 --volumes 202 --series 7</code></pre>
+
+<p>On Windows with the Standalone PsychoPy build, call its interpreter by absolute path if another
+Python is first on your PATH:</p>
+
+<pre><code>$PP = "C:\Program Files\PsychoPy\python.exe"
+&amp; $PP neck_vib_calibration.py --participant P01 --session lab</code></pre>
+
+<h2>What comes out</h2>
+
+<table>
+<tr><th>File</th><th>Contents</th></tr>
+<tr><td><code>*_gazelabels.npy</code></td><td><code>(volumes, 10, 2)</code> intended gaze in
+degrees — the array DeepMReye fine-tuning consumes</td></tr>
+<tr><td><code>*_log.tsv</code></td><td>Every event with its measured time: epoch onsets with
+intended versus actual, flashes, key presses</td></tr>
+<tr><td><code>*_events.tsv</code></td><td>BIDS-style events file for the GLM</td></tr>
+<tr><td><code>*_config.json</code></td><td>Protocol, screen and window specification, label
+convention, and the performance summary</td></tr>
+</table>
+
+<p>The label convention is stated explicitly in the config — units, origin, axis signs, what
+<code>t = 0</code> means, what a NaN means, the TR and the lead-volume count — because DeepMReye's
+own loader flips the vertical axis for its screen and the sign must be checked before fine-tuning.
+Use <code>--tr</code>, <code>--volumes</code> and <code>--lead-volumes</code> to make label row
+<i>i</i> correspond to series volume <i>i</i>.</p>
+
+<h2>Judging a session</h2>
+<p>The <code>performance</code> block in the config is the first thing to read. <b>Hit rate and
+false alarms</b> say whether the participant was performing the task; zero hits <i>and</i> zero
+false alarms means no key was pressed at all, not that capture failed. <b>Effective refresh rate,
+frame intervals and dropped frames</b> describe display timing. <b>Onset lag</b> is measured minus
+intended epoch onset, excluding the first epoch, which carries window warm-up and is reported
+separately.</p>
+
+<p>The presentation loop is driven by the clock rather than by counting frames, so a late frame
+displaces one stimulus by one frame and nothing accumulates across the run.</p>
+
+<footer>
+Source and issues on GitHub. Built for a study of neck-muscle vibration and illusory head motion;
+the calibration run itself is independent of that paradigm and can be used with any DeepMReye
+experiment.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# run outputs
+logs/
+*.npy
+*.tsv
+!docs/*.tsv
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# psychopy
+*.psydat
+lastrun.py
