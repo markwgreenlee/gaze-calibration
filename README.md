@@ -4,6 +4,8 @@ A PsychoPy calibration run that gives [DeepMReye](https://github.com/DeepMReye/D
 labelled gaze data it needs to be fine-tuned on an individual participant, together with the
 schedule, geometry and scoring code as a separate, testable module.
 
+Documentation site: <https://markwgreenlee.github.io/gaze-calibration/>
+
 A white dot steps around a virtual clock face on two rings — 7.5° and 3.75° of visual angle —
 holding each position for one TR and returning to the centre for one TR between steps. Rings
 alternate revolution by revolution, clockwise then anticlockwise. The participant looks at the dot
