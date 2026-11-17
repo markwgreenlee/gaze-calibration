@@ -71,6 +71,104 @@ The script refuses to run full screen if any target would fall off the display, 
 rather than drawing off-screen. At 1.2 m on a 336 mm-high panel the maximum vertical eccentricity
 is 7.97°, which is why the outer ring is 7.5° and not 10°.
 
+## Deploying to the scanner computer
+
+### 1. Get the code there
+
+```bash
+git clone https://github.com/markwgreenlee/gaze-calibration.git
+cd gaze-calibration
+python test_calib_schedule.py
+```
+
+All nine tests passing confirms the transfer is intact; they need only the standard library, so any
+Python 3.8+ on that machine will run them. If the machine has no git, use **Code → Download ZIP** on
+the repository page, or copy the folder from a USB stick — the code is 270 kB.
+
+`logs/` is in `.gitignore`, so participant data never reaches the repository even if you commit from
+the scanner computer. Copy the four files per run back by stick or lab share.
+
+### 2. Locate the PsychoPy interpreter
+
+PsychoPy has to be installed on that machine separately; the repository cannot carry it. Use the
+Standalone build rather than pip-installing into a conda environment. Then call its interpreter by
+absolute path, because the Python first on the PATH is usually a different one:
+
+```bash
+# macOS — the interpreter inside the app bundle
+PP=/Applications/PsychoPy.app/Contents/MacOS/python
+$PP neck_vib_calibration.py --participant P01 --session scanner
+
+# if that path does not exist, find the bundled interpreter:
+find /Applications/PsychoPy.app -name "python*" -maxdepth 4 -type f
+```
+
+```powershell
+# Windows
+$PP = "C:\Program Files\PsychoPy\python.exe"
+& $PP neck_vib_calibration.py --participant P01 --session scanner
+```
+
+### 3. Measure the projector geometry
+
+Three numbers, and the run is wrong without them:
+
+- **Projected image width and height in mm**, measured with a tape on the screen at the back of the
+  bore — the actual projected rectangle as set up, not the projector's specification.
+- **Total optical path from the participant's eye to that screen**: eye to mirror plus mirror to
+  screen. The fold does not change the effective distance; add the segments.
+- **The display index** of the projector, usually `1` when it is the second display.
+
+```bash
+$PP neck_vib_calibration.py --participant P01 --session scanner --run 1 \
+    --screen 1 --screen-mm 400x300 --distance 950
+```
+
+Keep `--screen-mm` and `--distance` on every subsequent command. They are the calibration.
+
+### 4. Verify the geometry before collecting
+
+`*_config.json` reports `derived.ring_radius_mm` for each ring — the radius the dot's excursion
+*should* have on the screen. Start a run, go into the magnet room, and **measure the actual radius
+with a tape**. Agreement within a few mm means the geometry is right; disagreement means
+`--screen-mm` is wrong and every gaze label is mislabelled by that factor. This check costs five
+minutes and is worth more than any amount of code reading.
+
+Also read `derived.max_eccentricity_deg`. In-bore screens are smaller but much closer, so the
+usable eccentricity is often *larger* than at a desk; if it comfortably exceeds the outer ring,
+widening `--rings` improves coverage of the gaze range. The script refuses to run full screen if a
+target would fall off the display.
+
+Check `psychopy_window.mm_per_px` in the same file: it must equal your measured width divided by the
+reported horizontal resolution. On macOS this is where a Retina backing store shows up — the script
+re-reads the window it actually got and rebuilds the schedule, but confirm the number is plausible
+rather than assuming. If full-screen on the second display misbehaves on macOS, check
+*System Settings → Desktop & Dock → Displays have separate Spaces*.
+
+### 5. The scanner run
+
+```bash
+$PP neck_vib_calibration.py --participant P01 --session scanner --run 1 \
+    --screen 1 --screen-mm 400x300 --distance 950 \
+    --scanner --tr 2.0 --volumes 202 --series 7
+```
+
+`--scanner` waits for the trigger instead of a keypress and listens for the button-box key rather
+than `space`. Set `--volumes` to what the series actually acquires and `--series` to its number.
+
+Confirm two site-specific assumptions on a dummy run, with nobody in the bore: that the trigger
+arrives as a keypress of `5`, and that the button box sends `1`. Start the sequence, confirm the
+script leaves its wait screen by itself, then press escape.
+
+### Projector notes
+
+For this experiment a VPixx PROPixx is just a second display — the script draws through PsychoPy's
+normal window and needs no VPixx API. Two things to check with whoever administers it: that it is
+**not** in one of the high-refresh sequential modes, which change the resolution the operating
+system reports and would silently corrupt the degree-to-pixel conversion; and what refresh rate it
+is actually set to. The script measures the real refresh and records it, so 60 or 120 Hz both work,
+but you want to know which you got.
+
 ## Output
 
 Four files per run, written to `logs/`:
